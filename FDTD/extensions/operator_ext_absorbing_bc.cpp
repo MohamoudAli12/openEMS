@@ -22,6 +22,9 @@
 
 #include "CSPrimBox.h"
 
+using std::cerr;
+using std::endl;
+
 Operator_Ext_Absorbing_BC::Operator_Ext_Absorbing_BC(Operator* op) : Operator_Extension(op)
 {
 	Initialize();
@@ -38,8 +41,6 @@ Operator_Ext_Absorbing_BC::Operator_Ext_Absorbing_BC(Operator* op, Operator_Ext_
 
 Operator_Extension* Operator_Ext_Absorbing_BC::Clone(Operator* op)
 {
-	if (dynamic_cast<Operator_Ext_Absorbing_BC*>(this)==NULL)
-		return NULL;
 	return new Operator_Ext_Absorbing_BC(op, this);
 }
 
@@ -257,7 +258,7 @@ Engine_Extension* Operator_Ext_Absorbing_BC::CreateEngineExtention()
 	return eng_ext;
 }
 
-void Operator_Ext_Absorbing_BC::ShowStat(ostream &ostr) const
+void Operator_Ext_Absorbing_BC::ShowStat(std::ostream &ostr) const
 {
 	Operator_Extension::ShowStat(ostr);
 

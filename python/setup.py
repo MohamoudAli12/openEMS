@@ -21,26 +21,44 @@ import glob
 # recommended to explicitly add the current directory to sys.path
 # https://github.com/pypa/setuptools/issues/3939
 sys.path.append(str(pathlib.Path(__file__).parent))
-from bootstrap.find_package import add_csxcad
+from bootstrap.find_package import add_csxcad, add_h5py
+
+
+LICENSE = "GPL-3.0-or-later"
+
+
+def get_license():
+    # mutually exclusive "license" and "license_expression"
+    if int(setuptools_version.split(".")[0]) < 77:
+        return {"license": LICENSE}
+    else:
+        return {"license_expression": LICENSE}
 
 
 def get_fallback_version(pyproject_toml, fallback_file):
+    # Always generate a fallback_version in case importlib.metadata
+    # introspection is unsupported or fails.
+    with open(pyproject_toml, 'r') as toml:
+        matching_list = [
+            line for line in toml if line.startswith("fallback_version")
+        ]
+        fallback_version_quoted = matching_list[0].split("=")[1]
+        fallback_version = fallback_version_quoted.replace('"', "").strip()
+
+    with open(fallback_file, "w+") as fallback_file:
+       fallback_file.write("__fallback_version__ = '%s'" % fallback_version)
+
     try:
         # pyproject.toml is respected by new pip, which calls setuptools_scm
         # to inject a version automatically.
         import setuptools_scm
-        return None
-    except ImportError:
-        with open(pyproject_toml, 'r') as toml:
-            matching_list = [
-                line for line in toml if line.startswith("fallback_version")
-            ]
-            version_quoted = matching_list[0].split("=")[1]
-            version = version_quoted.replace('"', "").strip()
-
-        with open(fallback_file, "w+") as fallback_file:
-            fallback_file.write("__fallback_version__ = '%s'" % version)
-        return version
+        from importlib.metadata import version
+        if int(version("setuptools_scm").split(".")[0]) >= 8:
+            return None
+        else:
+            raise ValueError("setuptools_scm version too low.")
+    except (ImportError, ValueError):
+        return fallback_version
 
 
 def normalize_path_subdir(path_str, subdir):
@@ -102,6 +120,7 @@ def determine_build_options():
         # system but are not used by compilers by default (such as a custom Boost).
         # On macOS, the required prefix are -L $(brew --prefix)/include and
         # -R $(brew --prefix)/lib respectively. Hardcode it as a special treatment.
+        path = None
         try:
             status = subprocess.run(["brew", "--prefix"], capture_output=True)
             path = status.stdout.decode("UTF-8").replace("\n", "")
@@ -110,6 +129,22 @@ def determine_build_options():
             )
         except FileNotFoundError:
             pass
+
+        # If pip build isolation is disbled, users must install
+        # dependencies manually. Unfortunately Homebrew's Cython
+        # is a keg-only internal package outside the search path.
+        # Add Cython to Python path manually.
+        if path and not any(["pip-build-env" in i for i in sys.path]):
+            homebrew_prefix = pathlib.Path(path) / "Cellar" / "cython"
+            python_ver = (sys.version_info.major, sys.version_info.minor)
+            python_dir = "python%d.%d/site-packages" % python_ver
+
+            find_candidate_cython_list = [
+                i for i in homebrew_prefix.rglob(python_dir) if i.is_dir()
+            ]
+            if find_candidate_cython_list:
+                sys.path.append(str(find_candidate_cython_list[0].resolve()))
+
     if os.name == "posix":
         # The path /usr/local is also too common on Unix systems, so we hardcode it
         # as a special treatment on Unix-like systems. For example, on CentOS, the
@@ -196,11 +231,12 @@ extensions = get_modules_list(
 
 # DO add new run-time dependencies here.
 install_requires = [
-    # BSD 3-Clause (https://github.com/h5py/h5py/blob/master/LICENSE)
-    'h5py',
     # BSD 3-Clause (https://github.com/numpy/numpy/blob/main/LICENSE.txt)
     'numpy',
 ]
+
+# BSD 3-Clause (https://github.com/h5py/h5py/blob/master/LICENSE)
+install_requires += add_h5py()
 
 try:
     # CSXCAD already installed, use a plain package name as dependency,
@@ -229,5 +265,6 @@ setup(
     'cython'
   ],
   install_requires=install_requires,
-  ext_modules=extensions
+  ext_modules=extensions,
+  **get_license()
 )

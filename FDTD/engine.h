@@ -49,7 +49,7 @@ public:
 
 	virtual unsigned int GetNumberOfTimesteps() {return numTS;}
 
-	virtual void NextInterval(float curr_speed) {};
+	virtual void NextInterval(float curr_speed) {UNUSED(curr_speed);};
 
 	//this access functions muss be overloaded by any new engine using a different storage model
 	inline virtual FDTD_FLOAT GetVolt(unsigned int n, unsigned int x, unsigned int y, unsigned int z) const
@@ -138,7 +138,7 @@ protected:
 
 	virtual void InitExtensions();
 	virtual void ClearExtensions();
-	vector<Engine_Extension*> m_Eng_exts;
+	std::vector<Engine_Extension*> m_Eng_exts;
 
 	friend class NS_Engine_Multithread::thread; // evil hack to access numTS from multithreading context
 };

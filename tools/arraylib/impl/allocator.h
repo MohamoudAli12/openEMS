@@ -22,6 +22,7 @@
 #include <cmath>
 #include <cstring>
 #include <iostream>
+#include <memory>
 
 namespace ArrayLib
 {
@@ -47,7 +48,7 @@ public:
 	}
 };
 
-#ifdef WIN32
+#ifdef _WIN32
 #include <malloc.h>
 #endif
 
@@ -68,7 +69,7 @@ public:
 			alignment = 1 << (size_t) ceil(log2(sizeof(T)));
 
 		T* buf;
-#ifdef WIN32
+#ifdef _WIN32
 		buf = (T*) _mm_malloc(numelem * sizeof(T), alignment);
 		if (buf == NULL)
 		{
@@ -83,10 +84,7 @@ public:
 			throw std::bad_alloc();
 		}
 #endif
-		memset(buf, 0, numelem * sizeof(T));
-		for (size_t i = 0; i < numelem; i++)
-			new (buf + i) T();
-
+		std::uninitialized_fill(buf, buf + numelem, T());
 		return buf;
 	}
 
@@ -96,7 +94,7 @@ public:
 		{
 			for (size_t i = 0; i < numelem; i++)
 				(&ptr[i])->~T();
-#ifdef WIN32
+#ifdef _WIN32
 			_mm_free(ptr);
 #else
 			std::free(ptr);
